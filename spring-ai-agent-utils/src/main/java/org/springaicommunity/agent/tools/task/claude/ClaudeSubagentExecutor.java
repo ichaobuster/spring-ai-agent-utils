@@ -169,8 +169,12 @@ public class ClaudeSubagentExecutor implements SubagentExecutor {
 
 			if (modelRef.contains(":")) {
 				var parts = modelRef.split(":");
-				providerName = parts[0].trim();
-				modelName = parts[1].trim();
+				if (StringUtils.hasText(parts[0])) {
+					providerName = parts[0].trim();
+				}
+				if (StringUtils.hasText(parts[1])) {
+					modelName = parts[1].trim();
+				}
 			}
 
 			if (this.chatClientBuilderMap.containsKey(providerName)) {

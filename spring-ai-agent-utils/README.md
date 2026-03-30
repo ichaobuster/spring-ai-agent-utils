@@ -512,7 +512,7 @@ spring.ai.openai-sdk.chat.options.temperature=1.0
 
 # or Google Gemini
 spring.ai.google.genai.project-id=${GOOGLE_CLOUD_PROJECT}
-spring.ai.google.genai.chat.options.model=gemini-3-pro-preview
+spring.ai.google.genai.chat.options.model=gemini-3.1-pro-preview
 spring.ai.google.genai.location=global
 
 # Web tools (used by the BraveWebSearchTool )

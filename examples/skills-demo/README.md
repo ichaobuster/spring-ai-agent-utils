@@ -130,7 +130,7 @@ spring.ai.openai-sdk.chat.options.model=gpt-5-mini-2025-08-07
 **Google Gemini**:
 ```properties
 spring.ai.google.genai.project-id=${GOOGLE_CLOUD_PROJECT}
-spring.ai.google.genai.chat.options.model=gemini-3-pro-preview
+spring.ai.google.genai.chat.options.model=gemini-3.1-pro-preview
 ```
 
 ## Learn More

@@ -97,7 +97,7 @@ agent.model.knowledge.cutoff=2025-01
 # agent.model.knowledge.cutoff=2025-08-07
 
 # For Gemini models
-# agent.model=gemini-3-pro-preview
+# agent.model=gemini-3.1-pro-preview
 # agent.model.knowledge.cutoff=Unknown
 ```
 
