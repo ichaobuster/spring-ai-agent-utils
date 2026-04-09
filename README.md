@@ -244,6 +244,7 @@ Apache License 2.0
 
 ## Links
 
+- [Documentation](https://springaicommunity.mintlify.app/projects/incubating/spring-ai-agent-utils)
 - [GitHub Repository](https://github.com/spring-ai-community/spring-ai-agent-utils)
 - [Issue Tracker](https://github.com/spring-ai-community/spring-ai-agent-utils/issues)
 - [Spring AI Documentation](https://docs.spring.io/spring-ai/reference/)
