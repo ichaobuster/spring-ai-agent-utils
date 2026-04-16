@@ -44,7 +44,7 @@ class AutoMemoryToolsTest {
 
 	@BeforeEach
 	void setUp() {
-		tools = AutoMemoryTools.builder().memoriesDir(tempDir).build();
+		tools = AutoMemoryTools.builder().memoryStorage(new LocalFileMemoryStorage(tempDir)).build();
 	}
 
 	// -------------------------------------------------------------------------
@@ -101,6 +101,16 @@ class AutoMemoryToolsTest {
 		void errorOnBadRange() throws IOException {
 			Files.writeString(tempDir.resolve("f.md"), "x");
 			assertThat(tools.memoryView("f.md", "bad")).startsWith("Error:");
+			assertThat(tools.memoryView("f.md", "1,2,3")).startsWith("Error:");
+			assertThat(tools.memoryView("f.md", "not,num")).startsWith("Error:");
+		}
+
+		@Test
+		@DisplayName("readFile with path including slash")
+		void readFileSlash() throws IOException {
+			tools.memoryCreate("sub/test.md", "content");
+			String result = tools.memoryView("sub/test.md", null);
+			assertThat(result).contains("File: test.md");
 		}
 
 	}
@@ -184,6 +194,21 @@ class AutoMemoryToolsTest {
 			assertThat(tools.memoryStrReplace("ghost.md", "a", "b")).startsWith("Error:");
 		}
 
+		@Test
+		@DisplayName("Replace with null newStr (same as empty)")
+		void replaceNullNewStr() throws IOException {
+			Files.writeString(tempDir.resolve("f.md"), "hello world");
+			tools.memoryStrReplace("f.md", "world", null);
+			assertThat(Files.readString(tempDir.resolve("f.md"))).isEqualTo("hello ");
+		}
+
+		@Test
+		@DisplayName("Error when target is directory")
+		void errorOnDirectory() throws IOException {
+			Files.createDirectory(tempDir.resolve("mydir"));
+			assertThat(tools.memoryStrReplace("mydir", "a", "b")).contains("directory");
+		}
+
 	}
 
 	// -------------------------------------------------------------------------
@@ -231,6 +256,21 @@ class AutoMemoryToolsTest {
 		void errorOnOutOfBounds() throws IOException {
 			Files.writeString(tempDir.resolve("f.md"), "A");
 			assertThat(tools.memoryInsert("f.md", 99, "X")).startsWith("Error:");
+		}
+
+		@Test
+		@DisplayName("Inserts into file without trailing newline")
+		void noTrailingNewline() throws IOException {
+			Files.writeString(tempDir.resolve("f.md"), "A");
+			tools.memoryInsert("f.md", 1, "B");
+			assertThat(Files.readString(tempDir.resolve("f.md"))).isEqualTo("A\nB");
+		}
+
+		@Test
+		@DisplayName("Error when target is directory")
+		void errorOnDirectory() throws IOException {
+			Files.createDirectory(tempDir.resolve("mydir"));
+			assertThat(tools.memoryInsert("mydir", 1, "b")).contains("directory");
 		}
 
 	}
@@ -352,16 +392,8 @@ class AutoMemoryToolsTest {
 		@DisplayName("Auto-creates memories directory on build()")
 		void autoCreatesDir(@TempDir Path base) {
 			Path newDir = base.resolve("memories");
-			AutoMemoryTools.builder().memoriesDir(newDir).build();
+			AutoMemoryTools.builder().memoryStorage(new LocalFileMemoryStorage(newDir)).build();
 			assertThat(newDir).isDirectory();
-		}
-
-		@Test
-		@DisplayName("Accepts string path")
-		void acceptsStringPath(@TempDir Path base) {
-			Path newDir = base.resolve("str-mem");
-			AutoMemoryTools t = AutoMemoryTools.builder().memoriesDir(newDir.toString()).build();
-			assertThat(t.getMemoriesDir()).isEqualTo(newDir.normalize());
 		}
 
 		@Test
@@ -371,8 +403,9 @@ class AutoMemoryToolsTest {
 			Files.createDirectory(sub);
 			// Pass a non-normalized path using ".."
 			Path nonNormalized = sub.resolve("../a");
-			AutoMemoryTools t = AutoMemoryTools.builder().memoriesDir(nonNormalized).build();
-			assertThat(t.getMemoriesDir()).isEqualTo(sub.normalize());
+			LocalFileMemoryStorage storage = new LocalFileMemoryStorage(nonNormalized);
+			AutoMemoryTools t = AutoMemoryTools.builder().memoryStorage(storage).build();
+			assertThat(storage.getMemoriesDir()).isEqualTo(sub.normalize());
 		}
 
 	}

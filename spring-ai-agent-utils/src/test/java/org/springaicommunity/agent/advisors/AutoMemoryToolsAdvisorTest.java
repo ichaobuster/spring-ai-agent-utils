@@ -26,6 +26,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springaicommunity.agent.tools.MemoryStorage;
 
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
@@ -109,6 +110,15 @@ class AutoMemoryToolsAdvisorTest {
 		void nullConsolidationTriggerThrows() {
 			assertThatIllegalArgumentException()
 				.isThrownBy(() -> AutoMemoryToolsAdvisor.builder().memoryConsolidationTrigger(null));
+		}
+
+		@Test
+		@DisplayName("Works with custom MemoryStorage")
+		void customMemoryStorage(@Mock MemoryStorage memoryStorage) {
+			AutoMemoryToolsAdvisor a = AutoMemoryToolsAdvisor.builder()
+				.memoryStorage(memoryStorage)
+				.build();
+			assertThat(a).isNotNull();
 		}
 
 	}

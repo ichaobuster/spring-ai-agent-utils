@@ -15,6 +15,7 @@
 */
 package org.springaicommunity.agent.advisors;
 
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -24,6 +25,8 @@ import java.util.Set;
 import java.util.function.BiPredicate;
 
 import org.springaicommunity.agent.tools.AutoMemoryTools;
+import org.springaicommunity.agent.tools.LocalFileMemoryStorage;
+import org.springaicommunity.agent.tools.MemoryStorage;
 
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
@@ -38,6 +41,7 @@ import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.Resource;
 import org.springframework.util.Assert;
+import org.springframework.util.StringUtils;
 
 /**
  * @author Christian Tzolov
@@ -119,6 +123,8 @@ public class AutoMemoryToolsAdvisor implements BaseChatMemoryAdvisor {
 		// Before the default ToolCallingAdvisor which is at HIGHEST_PRECEDENCE + 300
 		private int order = BaseAdvisor.HIGHEST_PRECEDENCE + 200;
 
+		private MemoryStorage memoryStorage;
+
 		private String memoriesRootDirectory = "";
 
 		private Resource memorySystemPrompt = DEFAULT_MEMORY_SYSTEM_PROMPT;
@@ -130,6 +136,11 @@ public class AutoMemoryToolsAdvisor implements BaseChatMemoryAdvisor {
 
 		public Builder order(int order) {
 			this.order = order;
+			return this;
+		}
+
+		public Builder memoryStorage(MemoryStorage memoryStorage) {
+			this.memoryStorage = memoryStorage;
 			return this;
 		}
 
@@ -153,10 +164,24 @@ public class AutoMemoryToolsAdvisor implements BaseChatMemoryAdvisor {
 		public AutoMemoryToolsAdvisor build() {
 
 			Assert.notNull(this.memorySystemPrompt, "Memory system prompt must not be null");
-			Assert.hasText(this.memoriesRootDirectory, "Memories root directory must not be empty");
+
+			if (this.memoryStorage == null) {
+				Assert.hasText(this.memoriesRootDirectory,
+						"Either memoryStorage or memoriesRootDirectory must be provided");
+				this.memoryStorage = new LocalFileMemoryStorage(Paths.get(this.memoriesRootDirectory));
+			}
+
+			if (!StringUtils.hasText(this.memoriesRootDirectory)) {
+				if (this.memoryStorage instanceof LocalFileMemoryStorage localFileMemoryStorage) {
+					this.memoriesRootDirectory = localFileMemoryStorage.getMemoriesDir().toString();
+				}
+				else {
+					this.memoriesRootDirectory = "remote";
+				}
+			}
 
 			List<ToolCallback> memoryToolCallbacks = Arrays.asList(MethodToolCallbackProvider.builder()
-				.toolObjects(AutoMemoryTools.builder().memoriesDir(this.memoriesRootDirectory).build())
+				.toolObjects(AutoMemoryTools.builder().memoryStorage(this.memoryStorage).build())
 				.build()
 				.getToolCallbacks());
 

@@ -16,13 +16,7 @@
 package org.springaicommunity.agent.tools;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Stream;
 
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -39,15 +33,15 @@ import org.springframework.util.StringUtils;
  */
 public class AutoMemoryTools {
 
-	private final Path memoriesDir;
+	private final MemoryStorage memoryStorage;
 
-	protected AutoMemoryTools(Path memoriesDir) {
-		Assert.notNull(memoriesDir, "memoriesDir must not be null");
-		this.memoriesDir = memoriesDir.normalize();
+	protected AutoMemoryTools(MemoryStorage memoryStorage) {
+		Assert.notNull(memoryStorage, "memoryStorage must not be null");
+		this.memoryStorage = memoryStorage;
 	}
 
-	public Path getMemoriesDir() {
-		return this.memoriesDir;
+	public MemoryStorage getMemoryStorage() {
+		return this.memoryStorage;
 	}
 
 	// @formatter:off
@@ -82,17 +76,15 @@ public class AutoMemoryTools {
 		@ToolParam(description = "Optional line range as 'start,end' (e.g. '1,50') when viewing a file. Ignored for directories.", required = false) String viewRange) { // @formatter:on
 
 		try {
-			Path target = resolveSafePath(path);
-
-			if (!Files.exists(target)) {
+			if (!this.memoryStorage.exists(path)) {
 				return "Error: Path does not exist: " + path;
 			}
 
-			if (Files.isDirectory(target)) {
-				return listDirectory(target, path);
+			if (this.memoryStorage.isDirectory(path)) {
+				return this.memoryStorage.listDirectory(path);
 			}
 			else {
-				return readFile(target, viewRange);
+				return readFile(path, viewRange);
 			}
 		}
 		catch (SecurityException e) {
@@ -136,18 +128,11 @@ public class AutoMemoryTools {
 		@ToolParam(description = "Full file content including the YAML frontmatter block followed by the memory body.") String fileText) { // @formatter:on
 
 		try {
-			Path target = resolveSafePath(path);
-
-			if (Files.exists(target)) {
+			if (this.memoryStorage.exists(path)) {
 				return "Error: File already exists: " + path + ". Use MemoryStrReplace to modify existing files.";
 			}
 
-			Path parent = target.getParent();
-			if (parent != null && !Files.exists(parent)) {
-				Files.createDirectories(parent);
-			}
-
-			Files.writeString(target, fileText != null ? fileText : "", StandardCharsets.UTF_8);
+			this.memoryStorage.writeString(path, fileText != null ? fileText : "");
 
 			return "Successfully created file: " + path + " (" + (fileText != null ? fileText.length() : 0) + " bytes)";
 		}
@@ -182,17 +167,15 @@ public class AutoMemoryTools {
 		@ToolParam(description = "The replacement text. Use empty string to delete the matched text.") String newStr) { // @formatter:on
 
 		try {
-			Path target = resolveSafePath(path);
-
-			if (!Files.exists(target)) {
+			if (!this.memoryStorage.exists(path)) {
 				return "Error: File does not exist: " + path;
 			}
 
-			if (Files.isDirectory(target)) {
+			if (this.memoryStorage.isDirectory(path)) {
 				return "Error: Path is a directory, not a file: " + path;
 			}
 
-			String content = Files.readString(target, StandardCharsets.UTF_8);
+			String content = this.memoryStorage.readString(path);
 			int occurrences = countOccurrences(content, oldStr);
 
 			if (occurrences == 0) {
@@ -208,7 +191,7 @@ public class AutoMemoryTools {
 			String replacement = newStr != null ? newStr : "";
 			String updated = replaceFirst(content, oldStr, replacement);
 
-			Files.writeString(target, updated, StandardCharsets.UTF_8);
+			this.memoryStorage.writeString(path, updated);
 
 			if (!StringUtils.hasText(replacement)) {
 				return String.format("Successfully deleted matched text from %s.", path);
@@ -246,13 +229,11 @@ public class AutoMemoryTools {
 		@ToolParam(description = "The text to insert. For MEMORY.md entries use: '- [Title](filename.md) — one-line hook'") String insertText) { // @formatter:on
 
 		try {
-			Path target = resolveSafePath(path);
-
-			if (!Files.exists(target)) {
+			if (!this.memoryStorage.exists(path)) {
 				return "Error: File does not exist: " + path;
 			}
 
-			if (Files.isDirectory(target)) {
+			if (this.memoryStorage.isDirectory(path)) {
 				return "Error: Path is a directory, not a file: " + path;
 			}
 
@@ -260,20 +241,20 @@ public class AutoMemoryTools {
 				return "Error: insert_line must be a non-negative integer";
 			}
 
-			List<String> lines = Files.readAllLines(target, StandardCharsets.UTF_8);
+			List<String> lines = this.memoryStorage.readAllLines(path);
 
 			if (insertLine > lines.size()) {
 				return String.format("Error: insert_line %d exceeds file length of %d lines", insertLine, lines.size());
 			}
 
 			// Detect whether the original file ends with a newline so we can restore it.
-			String originalContent = Files.readString(target, StandardCharsets.UTF_8);
+			String originalContent = this.memoryStorage.readString(path);
 			boolean trailingNewline = originalContent.endsWith("\n");
 
 			lines.add(insertLine, insertText != null ? insertText : "");
 
 			String updated = String.join("\n", lines) + (trailingNewline ? "\n" : "");
-			Files.writeString(target, updated, StandardCharsets.UTF_8);
+			this.memoryStorage.writeString(path, updated);
 
 			return "Successfully inserted text at line " + insertLine + " in: " + path;
 		}
@@ -302,32 +283,17 @@ public class AutoMemoryTools {
 		@ToolParam(description = "Path to the file or directory to delete, relative to the memories root. Remember to also remove its MEMORY.md entry afterwards.") String path) { // @formatter:on
 
 		try {
-			Path target = resolveSafePath(path);
-
-			// Prevent deleting the memories root itself
-			if (target.equals(this.memoriesDir)) {
-				return "Error: Cannot delete the memories root directory.";
-			}
-
-			if (!Files.exists(target)) {
+			if (!this.memoryStorage.exists(path)) {
 				return "Error: Path does not exist: " + path;
 			}
 
-			if (Files.isDirectory(target)) {
-				try (Stream<Path> walk = Files.walk(target)) {
-					walk.sorted(Comparator.reverseOrder()).forEach(p -> {
-						try {
-							Files.delete(p);
-						}
-						catch (IOException e) {
-							throw new RuntimeException("Failed to delete: " + p, e);
-						}
-					});
-				}
+			boolean isDir = this.memoryStorage.isDirectory(path);
+			this.memoryStorage.delete(path);
+
+			if (isDir) {
 				return "Successfully deleted directory: " + path;
 			}
 			else {
-				Files.delete(target);
 				return "Successfully deleted file: " + path;
 			}
 		}
@@ -359,23 +325,15 @@ public class AutoMemoryTools {
 		@ToolParam(description = "New path for the file or directory, relative to the memories root. Remember to update the MEMORY.md link afterwards.") String newPath) { // @formatter:on
 
 		try {
-			Path source = resolveSafePath(oldPath);
-			Path destination = resolveSafePath(newPath);
-
-			if (!Files.exists(source)) {
+			if (!this.memoryStorage.exists(oldPath)) {
 				return "Error: Source path does not exist: " + oldPath;
 			}
 
-			if (Files.exists(destination)) {
+			if (this.memoryStorage.exists(newPath)) {
 				return "Error: Destination path already exists: " + newPath;
 			}
 
-			Path destParent = destination.getParent();
-			if (destParent != null && !Files.exists(destParent)) {
-				Files.createDirectories(destParent);
-			}
-
-			Files.move(source, destination);
+			this.memoryStorage.rename(oldPath, newPath);
 
 			return String.format("Successfully renamed '%s' to '%s'", oldPath, newPath);
 		}
@@ -388,69 +346,11 @@ public class AutoMemoryTools {
 	}
 
 	/**
-	 * Resolves a user-supplied relative path against the memories directory,
-	 * guarding against path traversal attacks and absolute path injection.
-	 */
-	private Path resolveSafePath(String relativePath) {
-		if (!StringUtils.hasText(relativePath) || relativePath.equals("/")) {
-			return this.memoriesDir;
-		}
-		Path userPath = Paths.get(relativePath);
-		if (userPath.isAbsolute()) {
-			throw new SecurityException("Absolute paths are not allowed: '" + relativePath + "'");
-		}
-		Path resolved = this.memoriesDir.resolve(userPath).normalize();
-		if (!resolved.startsWith(this.memoriesDir)) {
-			throw new SecurityException(
-					"Path traversal attempt detected: '" + relativePath + "' escapes the memories directory");
-		}
-		return resolved;
-	}
-
-	/**
-	 * Lists a directory up to two levels deep, showing file sizes.
-	 */
-	private String listDirectory(Path dir, String displayPath) throws IOException {
-		StringBuilder sb = new StringBuilder();
-		sb.append("Contents of ").append(displayPath.isEmpty() ? "/" : displayPath).append(":\n\n");
-
-		try (Stream<Path> level1 = Files.list(dir)) {
-			List<Path> entries = level1.sorted(Comparator.comparing(p -> p.getFileName().toString())).toList();
-			for (Path entry : entries) {
-				String name = entry.getFileName().toString();
-				if (Files.isDirectory(entry)) {
-					sb.append("  ").append(name).append("/\n");
-					try (Stream<Path> level2 = Files.list(entry)) {
-						List<Path> subEntries = level2
-							.sorted(Comparator.comparing(p -> p.getFileName().toString()))
-							.toList();
-						for (Path sub : subEntries) {
-							String subName = sub.getFileName().toString();
-							if (Files.isDirectory(sub)) {
-								sb.append("    ").append(subName).append("/\n");
-							}
-							else {
-								long size = Files.size(sub);
-								sb.append("    ").append(subName).append(" (").append(size).append(" bytes)\n");
-							}
-						}
-					}
-				}
-				else {
-					long size = Files.size(entry);
-					sb.append("  ").append(name).append(" (").append(size).append(" bytes)\n");
-				}
-			}
-		}
-		return sb.toString();
-	}
-
-	/**
 	 * Reads a file and returns its contents with line numbers, optionally limited to a
 	 * line range specified as "start,end".
 	 */
-	private String readFile(Path file, String viewRange) throws IOException {
-		List<String> allLines = Files.readAllLines(file, StandardCharsets.UTF_8);
+	private String readFile(String path, String viewRange) throws IOException {
+		List<String> allLines = this.memoryStorage.readAllLines(path);
 		int totalLines = allLines.size();
 
 		int startLine = 1;
@@ -473,8 +373,11 @@ public class AutoMemoryTools {
 		}
 
 		StringBuilder sb = new StringBuilder();
-		sb.append(String.format("File: %s\nLines %d-%d of %d\n\n", file.getFileName(), startLine, endLine,
-				totalLines));
+		String fileName = path;
+		if (path.contains("/")) {
+			fileName = path.substring(path.lastIndexOf("/") + 1);
+		}
+		sb.append(String.format("File: %s\nLines %d-%d of %d\n\n", fileName, startLine, endLine, totalLines));
 
 		for (int i = startLine - 1; i < endLine; i++) {
 			sb.append(String.format("%6d\t%s\n", i + 1, allLines.get(i)));
@@ -549,40 +452,26 @@ public class AutoMemoryTools {
 
 	public static class Builder {
 
-		private Path memoriesDir = Paths.get("/memories");
+		private MemoryStorage memoryStorage;
 
 		private Builder() {
 		}
 
 		/**
-		 * Set the root directory where all memory files are stored.
-		 * Defaults to {@code /memories}.
-		 * @param memoriesDir the memories root directory
+		 * Set the memory storage provider.
+		 * @param memoryStorage the memory storage provider
 		 * @return this builder
 		 */
-		public Builder memoriesDir(Path memoriesDir) {
-			this.memoriesDir = memoriesDir;
-			return this;
-		}
-
-		/**
-		 * Set the root directory where all memory files are stored using a string path.
-		 * @param memoriesDir the memories root directory as string
-		 * @return this builder
-		 */
-		public Builder memoriesDir(String memoriesDir) {
-			this.memoriesDir = memoriesDir != null ? Paths.get(memoriesDir) : Paths.get("/memories");
+		public Builder memoryStorage(MemoryStorage memoryStorage) {
+			this.memoryStorage = memoryStorage;
 			return this;
 		}
 
 		public AutoMemoryTools build() {
-			try {
-				Files.createDirectories(memoriesDir);
+			if (this.memoryStorage == null) {
+				throw new IllegalStateException("memoryStorage must not be null");
 			}
-			catch (IOException e) {
-				throw new IllegalStateException("Failed to create memories directory: " + memoriesDir, e);
-			}
-			return new AutoMemoryTools(memoriesDir);
+			return new AutoMemoryTools(this.memoryStorage);
 		}
 
 	}
