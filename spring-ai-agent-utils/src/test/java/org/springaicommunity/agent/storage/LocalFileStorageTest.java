@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.springaicommunity.agent.tools;
+package org.springaicommunity.agent.storage;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -26,25 +26,24 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Tests for {@link LocalFileMemoryStorage}.
+ * Tests for {@link LocalFileStorage}.
  *
  * @author ichaobuster
  */
-@DisplayName("LocalFileMemoryStorage Tests")
-class LocalFileMemoryStorageTest {
+@DisplayName("LocalFileStorage Tests")
+class LocalFileStorageTest {
 
 	@TempDir
 	Path tempDir;
 
-	private LocalFileMemoryStorage storage;
+	private LocalFileStorage storage;
 
 	@BeforeEach
 	void setUp() {
-		storage = new LocalFileMemoryStorage(tempDir);
+		storage = new LocalFileStorage(tempDir);
 	}
 
 	@Test

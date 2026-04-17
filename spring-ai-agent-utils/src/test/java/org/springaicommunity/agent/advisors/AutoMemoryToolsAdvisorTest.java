@@ -26,7 +26,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springaicommunity.agent.tools.MemoryStorage;
+import org.springaicommunity.agent.storage.StorageProvider;
 
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
@@ -113,10 +113,10 @@ class AutoMemoryToolsAdvisorTest {
 		}
 
 		@Test
-		@DisplayName("Works with custom MemoryStorage")
-		void customMemoryStorage(@Mock MemoryStorage memoryStorage) {
+		@DisplayName("Works with custom StorageProvider")
+		void customStorageProvider(@Mock StorageProvider storageProvider) {
 			AutoMemoryToolsAdvisor a = AutoMemoryToolsAdvisor.builder()
-				.memoryStorage(memoryStorage)
+				.storageProvider(storageProvider)
 				.build();
 			assertThat(a).isNotNull();
 		}

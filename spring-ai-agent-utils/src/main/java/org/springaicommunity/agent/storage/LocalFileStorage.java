@@ -13,7 +13,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-package org.springaicommunity.agent.tools;
+package org.springaicommunity.agent.storage;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -28,27 +28,27 @@ import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
 /**
- * Local file system implementation of the MemoryStorage provider.
- * Uses java.nio.file.Files and Path APIs to manage memory files.
+ * Local file system implementation of the StorageProvider.
+ * Uses java.nio.file.Files and Path APIs to manage files.
  *
  * @author ichaobuster
  */
-public class LocalFileMemoryStorage implements MemoryStorage {
+public class LocalFileStorage implements StorageProvider {
 
-	private final Path memoriesDir;
+	private final Path baseDir;
 
-	public LocalFileMemoryStorage(Path memoriesDir) {
-		Assert.notNull(memoriesDir, "memoriesDir must not be null");
-		this.memoriesDir = memoriesDir.normalize();
+	public LocalFileStorage(Path baseDir) {
+		Assert.notNull(baseDir, "baseDir must not be null");
+		this.baseDir = baseDir.normalize();
 		try {
-			Files.createDirectories(this.memoriesDir);
+			Files.createDirectories(this.baseDir);
 		} catch (IOException e) {
-			throw new IllegalStateException("Failed to create memories directory: " + this.memoriesDir, e);
+			throw new IllegalStateException("Failed to create base directory: " + this.baseDir, e);
 		}
 	}
 
-	public Path getMemoriesDir() {
-		return this.memoriesDir;
+	public Path getBaseDir() {
+		return this.baseDir;
 	}
 
 	@Override
@@ -119,8 +119,8 @@ public class LocalFileMemoryStorage implements MemoryStorage {
 	@Override
 	public void delete(String path) throws IOException {
 		Path target = resolveSafePath(path);
-		if (target.equals(this.memoriesDir)) {
-			throw new SecurityException("Cannot delete the memories root directory.");
+		if (target.equals(this.baseDir)) {
+			throw new SecurityException("Cannot delete the base root directory.");
 		}
 
 		if (Files.isDirectory(target)) {
@@ -152,21 +152,21 @@ public class LocalFileMemoryStorage implements MemoryStorage {
 	}
 
 	/**
-	 * Resolves a user-supplied relative path against the memories directory,
+	 * Resolves a user-supplied relative path against the base directory,
 	 * guarding against path traversal attacks and absolute path injection.
 	 */
 	private Path resolveSafePath(String relativePath) {
 		if (!StringUtils.hasText(relativePath) || relativePath.equals("/")) {
-			return this.memoriesDir;
+			return this.baseDir;
 		}
 		Path userPath = Paths.get(relativePath);
 		if (userPath.isAbsolute()) {
 			throw new SecurityException("Absolute paths are not allowed: '" + relativePath + "'");
 		}
-		Path resolved = this.memoriesDir.resolve(userPath).normalize();
-		if (!resolved.startsWith(this.memoriesDir)) {
+		Path resolved = this.baseDir.resolve(userPath).normalize();
+		if (!resolved.startsWith(this.baseDir)) {
 			throw new SecurityException(
-					"Path traversal attempt detected: '" + relativePath + "' escapes the memories directory");
+					"Path traversal attempt detected: '" + relativePath + "' escapes the base directory");
 		}
 		return resolved;
 	}

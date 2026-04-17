@@ -16,16 +16,17 @@
 package org.springaicommunity.agent.tools;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springaicommunity.agent.advisors.AutoMemoryToolsAdvisor;
+import org.springaicommunity.agent.storage.LocalFileStorage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -44,7 +45,7 @@ class AutoMemoryToolsTest {
 
 	@BeforeEach
 	void setUp() {
-		tools = AutoMemoryTools.builder().memoryStorage(new LocalFileMemoryStorage(tempDir)).build();
+		tools = AutoMemoryTools.builder().storageProvider(new LocalFileStorage(tempDir)).build();
 	}
 
 	// -------------------------------------------------------------------------
@@ -389,50 +390,46 @@ class AutoMemoryToolsTest {
 	class BuilderTests {
 
 		@Test
-		@DisplayName("Auto-creates memories directory on build()")
+		@DisplayName("Auto-creates base directory on build()")
 		void autoCreatesDir(@TempDir Path base) {
 			Path newDir = base.resolve("memories");
-			AutoMemoryTools.builder().memoryStorage(new LocalFileMemoryStorage(newDir)).build();
+			AutoMemoryTools.builder().storageProvider(new LocalFileStorage(newDir)).build();
 			assertThat(newDir).isDirectory();
 		}
 
 		@Test
-		@DisplayName("Normalizes memoriesDir")
+		@DisplayName("Normalizes baseDir")
 		void normalizesDir(@TempDir Path base) throws IOException {
 			Path sub = base.resolve("a");
 			Files.createDirectory(sub);
 			// Pass a non-normalized path using ".."
 			Path nonNormalized = sub.resolve("../a");
-			LocalFileMemoryStorage storage = new LocalFileMemoryStorage(nonNormalized);
-			AutoMemoryTools t = AutoMemoryTools.builder().memoryStorage(storage).build();
-			assertThat(storage.getMemoriesDir()).isEqualTo(sub.normalize());
+			LocalFileStorage storage = new LocalFileStorage(nonNormalized);
+			AutoMemoryTools t = AutoMemoryTools.builder().storageProvider(storage).build();
+			assertThat(storage.getBaseDir()).isEqualTo(sub.normalize());
 		}
 
 	}
 
 	// -------------------------------------------------------------------------
-	// System Prompt
+	// SystemPrompt
 	// -------------------------------------------------------------------------
 
 	@Nested
-	@DisplayName("AUTO_MEMORY_TOOLS_SYSTEM_PROMPT.md")
+	@DisplayName("SystemPrompt")
 	class SystemPromptTests {
 
-		private String prompt;
-
-		@BeforeEach
-		void loadPrompt() throws IOException {
-			try (InputStream in = getClass().getResourceAsStream("/prompt/AUTO_MEMORY_TOOLS_SYSTEM_PROMPT.md")) {
-				assertThat(in).as("AUTO_MEMORY_TOOLS_SYSTEM_PROMPT.md must exist on classpath").isNotNull();
-				prompt = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-			}
+		private String getPrompt() {
+			return AutoMemoryToolsAdvisor.builder()
+				.memoriesRootDirectory(tempDir.toString())
+				.build()
+				.getMemorySystemPrompt();
 		}
 
 		@Test
-		@DisplayName("Contains all six tool names")
+		@DisplayName("Contains all tool names")
 		void containsAllToolNames() {
-			assertThat(prompt)
-				.contains("MemoryView")
+			assertThat(getPrompt()).contains("MemoryView")
 				.contains("MemoryCreate")
 				.contains("MemoryStrReplace")
 				.contains("MemoryInsert")
@@ -441,31 +438,27 @@ class AutoMemoryToolsTest {
 		}
 
 		@Test
-		@DisplayName("Contains MEMORIES_ROOT_DIERCTORY template placeholder")
+		@DisplayName("Contains memories root placeholder")
 		void containsMemoriesRootPlaceholder() {
-			assertThat(prompt).contains("{MEMORIES_ROOT_DIERCTORY}");
+			assertThat(getPrompt()).contains(tempDir.toString());
 		}
 
 		@Test
-		@DisplayName("Documents all four memory types")
+		@DisplayName("Documents memory types")
 		void documentsMemoryTypes() {
-			assertThat(prompt)
-				.contains("user")
-				.contains("feedback")
-				.contains("project")
-				.contains("reference");
+			assertThat(getPrompt()).contains("user").contains("feedback").contains("project").contains("reference");
 		}
 
 		@Test
-		@DisplayName("Describes the two-step save workflow")
+		@DisplayName("Describes the two-step save process")
 		void describesTwoStepSave() {
-			assertThat(prompt).contains("Step 1").contains("Step 2");
+			assertThat(getPrompt()).contains("Step 1").contains("Step 2");
 		}
 
 		@Test
 		@DisplayName("References MEMORY.md as the index")
 		void referencesMemoryMd() {
-			assertThat(prompt).contains("MEMORY.md");
+			assertThat(getPrompt()).contains("MEMORY.md");
 		}
 
 	}

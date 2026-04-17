@@ -23,10 +23,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiPredicate;
+import java.util.stream.Collectors;
 
+import org.springaicommunity.agent.storage.LocalFileStorage;
+import org.springaicommunity.agent.storage.StorageProvider;
 import org.springaicommunity.agent.tools.AutoMemoryTools;
-import org.springaicommunity.agent.tools.LocalFileMemoryStorage;
-import org.springaicommunity.agent.tools.MemoryStorage;
 
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
@@ -87,7 +88,7 @@ public class AutoMemoryToolsAdvisor implements BaseChatMemoryAdvisor {
 
 			Set<String> existingNames = toolCallbacks.stream()
 				.map(tc -> tc.getToolDefinition().name())
-				.collect(java.util.stream.Collectors.toSet());
+				.collect(Collectors.toSet());
 
 			this.memoryToolCallbacks.stream()
 				.filter(tc -> !existingNames.contains(tc.getToolDefinition().name()))
@@ -114,6 +115,10 @@ public class AutoMemoryToolsAdvisor implements BaseChatMemoryAdvisor {
 		return order;
 	}
 
+	public String getMemorySystemPrompt() {
+		return this.memorySystemPrompt;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -123,7 +128,7 @@ public class AutoMemoryToolsAdvisor implements BaseChatMemoryAdvisor {
 		// Before the default ToolCallingAdvisor which is at HIGHEST_PRECEDENCE + 300
 		private int order = BaseAdvisor.HIGHEST_PRECEDENCE + 200;
 
-		private MemoryStorage memoryStorage;
+		private StorageProvider storageProvider;
 
 		private String memoriesRootDirectory = "";
 
@@ -139,8 +144,8 @@ public class AutoMemoryToolsAdvisor implements BaseChatMemoryAdvisor {
 			return this;
 		}
 
-		public Builder memoryStorage(MemoryStorage memoryStorage) {
-			this.memoryStorage = memoryStorage;
+		public Builder storageProvider(StorageProvider storageProvider) {
+			this.storageProvider = storageProvider;
 			return this;
 		}
 
@@ -165,15 +170,15 @@ public class AutoMemoryToolsAdvisor implements BaseChatMemoryAdvisor {
 
 			Assert.notNull(this.memorySystemPrompt, "Memory system prompt must not be null");
 
-			if (this.memoryStorage == null) {
+			if (this.storageProvider == null) {
 				Assert.hasText(this.memoriesRootDirectory,
-						"Either memoryStorage or memoriesRootDirectory must be provided");
-				this.memoryStorage = new LocalFileMemoryStorage(Paths.get(this.memoriesRootDirectory));
+						"Either storageProvider or memoriesRootDirectory must be provided");
+				this.storageProvider = new LocalFileStorage(Paths.get(this.memoriesRootDirectory));
 			}
 
 			if (!StringUtils.hasText(this.memoriesRootDirectory)) {
-				if (this.memoryStorage instanceof LocalFileMemoryStorage localFileMemoryStorage) {
-					this.memoriesRootDirectory = localFileMemoryStorage.getMemoriesDir().toString();
+				if (this.storageProvider instanceof LocalFileStorage localFileStorage) {
+					this.memoriesRootDirectory = localFileStorage.getBaseDir().toString();
 				}
 				else {
 					this.memoriesRootDirectory = "remote";
@@ -181,7 +186,7 @@ public class AutoMemoryToolsAdvisor implements BaseChatMemoryAdvisor {
 			}
 
 			List<ToolCallback> memoryToolCallbacks = Arrays.asList(MethodToolCallbackProvider.builder()
-				.toolObjects(AutoMemoryTools.builder().memoryStorage(this.memoryStorage).build())
+				.toolObjects(AutoMemoryTools.builder().storageProvider(this.storageProvider).build())
 				.build()
 				.getToolCallbacks());
 

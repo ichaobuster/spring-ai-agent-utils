@@ -13,7 +13,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-package org.springaicommunity.agent.tools;
+package org.springaicommunity.agent.storage;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -25,21 +25,21 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import com.aliyun.oss.OSS;
+import com.aliyun.oss.model.DeleteObjectsRequest;
 import com.aliyun.oss.model.ListObjectsRequest;
 import com.aliyun.oss.model.OSSObject;
-import com.aliyun.oss.model.ObjectListing;
 import com.aliyun.oss.model.OSSObjectSummary;
-import com.aliyun.oss.model.DeleteObjectsRequest;
+import com.aliyun.oss.model.ObjectListing;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
 /**
- * Aliyun OSS implementation of the MemoryStorage provider.
- * Uses the Aliyun OSS SDK to manage memory files.
+ * Aliyun OSS implementation of the StorageProvider.
+ * Uses the Aliyun OSS SDK to manage files.
  *
  * @author ichaobuster
  */
-public class AliyunOssMemoryStorage implements MemoryStorage {
+public class AliyunOssStorage implements StorageProvider {
 
 	private final OSS ossClient;
 
@@ -47,7 +47,7 @@ public class AliyunOssMemoryStorage implements MemoryStorage {
 
 	private final String prefix;
 
-	public AliyunOssMemoryStorage(OSS ossClient, String bucketName, String prefix) {
+	public AliyunOssStorage(OSS ossClient, String bucketName, String prefix) {
 		Assert.notNull(ossClient, "ossClient must not be null");
 		Assert.hasText(bucketName, "bucketName must not be empty");
 		this.ossClient = ossClient;
@@ -142,7 +142,9 @@ public class AliyunOssMemoryStorage implements MemoryStorage {
 			do {
 				ObjectListing listResult = this.ossClient
 						.listObjects(new ListObjectsRequest(this.bucketName).withPrefix(key).withMarker(nextMarker));
-				List<String> keysToDelete = listResult.getObjectSummaries().stream().map(OSSObjectSummary::getKey)
+				List<String> keysToDelete = listResult.getObjectSummaries()
+						.stream()
+						.map(OSSObjectSummary::getKey)
 						.collect(Collectors.toList());
 				if (!keysToDelete.isEmpty()) {
 					this.ossClient.deleteObjects(new DeleteObjectsRequest(this.bucketName).withKeys(keysToDelete));
@@ -162,10 +164,12 @@ public class AliyunOssMemoryStorage implements MemoryStorage {
 		if (isDirectory(oldPath)) {
 			// OSS doesn't have a direct rename for "directories". Must copy and delete all
 			// objects.
-			if (!sourceKey.endsWith("/"))
+			if (!sourceKey.endsWith("/")) {
 				sourceKey += "/";
-			if (!destKey.endsWith("/"))
+			}
+			if (!destKey.endsWith("/")) {
 				destKey += "/";
+			}
 
 			String nextMarker = null;
 			do {

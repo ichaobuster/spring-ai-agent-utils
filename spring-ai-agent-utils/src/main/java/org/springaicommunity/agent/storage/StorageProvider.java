@@ -13,24 +13,23 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-package org.springaicommunity.agent.tools;
+package org.springaicommunity.agent.storage;
 
 import java.io.IOException;
 import java.util.List;
 
 /**
- * Storage provider for AutoMemoryTools.
+ * Storage provider for tools.
  * Encapsulates all persistent storage operations (read, write, delete, list).
- * All paths are relative to the memories root.
  *
  * @author ichaobuster
  */
-public interface MemoryStorage {
+public interface StorageProvider {
 
 	/**
-	 * Checks if the given path exists in the memory store.
+	 * Checks if the given path exists.
 	 * 
-	 * @param path the path relative to the memories root.
+	 * @param path the path relative to the base directory.
 	 * @return true if the path exists.
 	 */
 	boolean exists(String path);
@@ -38,15 +37,15 @@ public interface MemoryStorage {
 	/**
 	 * Checks if the given path is a directory.
 	 * 
-	 * @param path the path relative to the memories root.
+	 * @param path the path relative to the base directory.
 	 * @return true if it is a directory.
 	 */
 	boolean isDirectory(String path);
 
 	/**
-	 * Lists the contents of a directory in the memory store.
+	 * Lists the contents of a directory.
 	 * 
-	 * @param path the directory path relative to the memories root.
+	 * @param path the directory path relative to the base directory.
 	 * @return a formatted string listing the contents.
 	 * @throws IOException if an error occurs.
 	 */
@@ -55,7 +54,7 @@ public interface MemoryStorage {
 	/**
 	 * Reads the entire content of a file as a string.
 	 * 
-	 * @param path the file path relative to the memories root.
+	 * @param path the file path relative to the base directory.
 	 * @return the file content.
 	 * @throws IOException if an error occurs.
 	 */
@@ -64,7 +63,7 @@ public interface MemoryStorage {
 	/**
 	 * Reads all lines of a file.
 	 * 
-	 * @param path the file path relative to the memories root.
+	 * @param path the file path relative to the base directory.
 	 * @return the list of lines.
 	 * @throws IOException if an error occurs.
 	 */
@@ -73,16 +72,16 @@ public interface MemoryStorage {
 	/**
 	 * Writes a string to a file. Overwrites if it exists.
 	 * 
-	 * @param path    the file path relative to the memories root.
+	 * @param path    the file path relative to the base directory.
 	 * @param content the content to write.
 	 * @throws IOException if an error occurs.
 	 */
 	void writeString(String path, String content) throws IOException;
 
 	/**
-	 * Deletes a file or directory (recursively) from the memory store.
+	 * Deletes a file or directory (recursively).
 	 * 
-	 * @param path the path relative to the memories root.
+	 * @param path the path relative to the base directory.
 	 * @throws IOException if an error occurs.
 	 */
 	void delete(String path) throws IOException;

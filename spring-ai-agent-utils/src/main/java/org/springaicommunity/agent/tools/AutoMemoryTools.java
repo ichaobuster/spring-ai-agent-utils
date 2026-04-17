@@ -18,6 +18,8 @@ package org.springaicommunity.agent.tools;
 import java.io.IOException;
 import java.util.List;
 
+import org.springaicommunity.agent.storage.StorageProvider;
+
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.util.Assert;
@@ -33,15 +35,15 @@ import org.springframework.util.StringUtils;
  */
 public class AutoMemoryTools {
 
-	private final MemoryStorage memoryStorage;
+	private final StorageProvider storageProvider;
 
-	protected AutoMemoryTools(MemoryStorage memoryStorage) {
-		Assert.notNull(memoryStorage, "memoryStorage must not be null");
-		this.memoryStorage = memoryStorage;
+	protected AutoMemoryTools(StorageProvider storageProvider) {
+		Assert.notNull(storageProvider, "storageProvider must not be null");
+		this.storageProvider = storageProvider;
 	}
 
-	public MemoryStorage getMemoryStorage() {
-		return this.memoryStorage;
+	public StorageProvider getStorageProvider() {
+		return this.storageProvider;
 	}
 
 	// @formatter:off
@@ -76,12 +78,12 @@ public class AutoMemoryTools {
 		@ToolParam(description = "Optional line range as 'start,end' (e.g. '1,50') when viewing a file. Ignored for directories.", required = false) String viewRange) { // @formatter:on
 
 		try {
-			if (!this.memoryStorage.exists(path)) {
+			if (!this.storageProvider.exists(path)) {
 				return "Error: Path does not exist: " + path;
 			}
 
-			if (this.memoryStorage.isDirectory(path)) {
-				return this.memoryStorage.listDirectory(path);
+			if (this.storageProvider.isDirectory(path)) {
+				return this.storageProvider.listDirectory(path);
 			}
 			else {
 				return readFile(path, viewRange);
@@ -128,11 +130,11 @@ public class AutoMemoryTools {
 		@ToolParam(description = "Full file content including the YAML frontmatter block followed by the memory body.") String fileText) { // @formatter:on
 
 		try {
-			if (this.memoryStorage.exists(path)) {
+			if (this.storageProvider.exists(path)) {
 				return "Error: File already exists: " + path + ". Use MemoryStrReplace to modify existing files.";
 			}
 
-			this.memoryStorage.writeString(path, fileText != null ? fileText : "");
+			this.storageProvider.writeString(path, fileText != null ? fileText : "");
 
 			return "Successfully created file: " + path + " (" + (fileText != null ? fileText.length() : 0) + " bytes)";
 		}
@@ -167,15 +169,15 @@ public class AutoMemoryTools {
 		@ToolParam(description = "The replacement text. Use empty string to delete the matched text.") String newStr) { // @formatter:on
 
 		try {
-			if (!this.memoryStorage.exists(path)) {
+			if (!this.storageProvider.exists(path)) {
 				return "Error: File does not exist: " + path;
 			}
 
-			if (this.memoryStorage.isDirectory(path)) {
+			if (this.storageProvider.isDirectory(path)) {
 				return "Error: Path is a directory, not a file: " + path;
 			}
 
-			String content = this.memoryStorage.readString(path);
+			String content = this.storageProvider.readString(path);
 			int occurrences = countOccurrences(content, oldStr);
 
 			if (occurrences == 0) {
@@ -191,7 +193,7 @@ public class AutoMemoryTools {
 			String replacement = newStr != null ? newStr : "";
 			String updated = replaceFirst(content, oldStr, replacement);
 
-			this.memoryStorage.writeString(path, updated);
+			this.storageProvider.writeString(path, updated);
 
 			if (!StringUtils.hasText(replacement)) {
 				return String.format("Successfully deleted matched text from %s.", path);
@@ -229,11 +231,11 @@ public class AutoMemoryTools {
 		@ToolParam(description = "The text to insert. For MEMORY.md entries use: '- [Title](filename.md) — one-line hook'") String insertText) { // @formatter:on
 
 		try {
-			if (!this.memoryStorage.exists(path)) {
+			if (!this.storageProvider.exists(path)) {
 				return "Error: File does not exist: " + path;
 			}
 
-			if (this.memoryStorage.isDirectory(path)) {
+			if (this.storageProvider.isDirectory(path)) {
 				return "Error: Path is a directory, not a file: " + path;
 			}
 
@@ -241,20 +243,20 @@ public class AutoMemoryTools {
 				return "Error: insert_line must be a non-negative integer";
 			}
 
-			List<String> lines = this.memoryStorage.readAllLines(path);
+			List<String> lines = this.storageProvider.readAllLines(path);
 
 			if (insertLine > lines.size()) {
 				return String.format("Error: insert_line %d exceeds file length of %d lines", insertLine, lines.size());
 			}
 
 			// Detect whether the original file ends with a newline so we can restore it.
-			String originalContent = this.memoryStorage.readString(path);
+			String originalContent = this.storageProvider.readString(path);
 			boolean trailingNewline = originalContent.endsWith("\n");
 
 			lines.add(insertLine, insertText != null ? insertText : "");
 
 			String updated = String.join("\n", lines) + (trailingNewline ? "\n" : "");
-			this.memoryStorage.writeString(path, updated);
+			this.storageProvider.writeString(path, updated);
 
 			return "Successfully inserted text at line " + insertLine + " in: " + path;
 		}
@@ -283,12 +285,12 @@ public class AutoMemoryTools {
 		@ToolParam(description = "Path to the file or directory to delete, relative to the memories root. Remember to also remove its MEMORY.md entry afterwards.") String path) { // @formatter:on
 
 		try {
-			if (!this.memoryStorage.exists(path)) {
+			if (!this.storageProvider.exists(path)) {
 				return "Error: Path does not exist: " + path;
 			}
 
-			boolean isDir = this.memoryStorage.isDirectory(path);
-			this.memoryStorage.delete(path);
+			boolean isDir = this.storageProvider.isDirectory(path);
+			this.storageProvider.delete(path);
 
 			if (isDir) {
 				return "Successfully deleted directory: " + path;
@@ -325,15 +327,15 @@ public class AutoMemoryTools {
 		@ToolParam(description = "New path for the file or directory, relative to the memories root. Remember to update the MEMORY.md link afterwards.") String newPath) { // @formatter:on
 
 		try {
-			if (!this.memoryStorage.exists(oldPath)) {
+			if (!this.storageProvider.exists(oldPath)) {
 				return "Error: Source path does not exist: " + oldPath;
 			}
 
-			if (this.memoryStorage.exists(newPath)) {
+			if (this.storageProvider.exists(newPath)) {
 				return "Error: Destination path already exists: " + newPath;
 			}
 
-			this.memoryStorage.rename(oldPath, newPath);
+			this.storageProvider.rename(oldPath, newPath);
 
 			return String.format("Successfully renamed '%s' to '%s'", oldPath, newPath);
 		}
@@ -350,7 +352,7 @@ public class AutoMemoryTools {
 	 * line range specified as "start,end".
 	 */
 	private String readFile(String path, String viewRange) throws IOException {
-		List<String> allLines = this.memoryStorage.readAllLines(path);
+		List<String> allLines = this.storageProvider.readAllLines(path);
 		int totalLines = allLines.size();
 
 		int startLine = 1;
@@ -452,26 +454,26 @@ public class AutoMemoryTools {
 
 	public static class Builder {
 
-		private MemoryStorage memoryStorage;
+		private StorageProvider storageProvider;
 
 		private Builder() {
 		}
 
 		/**
-		 * Set the memory storage provider.
-		 * @param memoryStorage the memory storage provider
+		 * Set the storage provider.
+		 * @param storageProvider the storage provider
 		 * @return this builder
 		 */
-		public Builder memoryStorage(MemoryStorage memoryStorage) {
-			this.memoryStorage = memoryStorage;
+		public Builder storageProvider(StorageProvider storageProvider) {
+			this.storageProvider = storageProvider;
 			return this;
 		}
 
 		public AutoMemoryTools build() {
-			if (this.memoryStorage == null) {
-				throw new IllegalStateException("memoryStorage must not be null");
+			if (this.storageProvider == null) {
+				throw new IllegalStateException("storageProvider must not be null");
 			}
-			return new AutoMemoryTools(this.memoryStorage);
+			return new AutoMemoryTools(this.storageProvider);
 		}
 
 	}

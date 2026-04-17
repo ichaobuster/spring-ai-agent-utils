@@ -13,10 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.springaicommunity.agent.tools;
+package org.springaicommunity.agent.storage;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
@@ -40,18 +41,18 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Tests for {@link AliyunOssMemoryStorage}.
+ * Tests for {@link AliyunOssStorage}.
  *
  * @author ichaobuster
  */
-@DisplayName("AliyunOssMemoryStorage Tests")
+@DisplayName("AliyunOssStorage Tests")
 @ExtendWith(MockitoExtension.class)
-class AliyunOssMemoryStorageTest {
+class AliyunOssStorageTest {
 
 	@Mock
 	private OSS ossClient;
 
-	private AliyunOssMemoryStorage storage;
+	private AliyunOssStorage storage;
 
 	private final String bucketName = "test-bucket";
 
@@ -59,7 +60,7 @@ class AliyunOssMemoryStorageTest {
 
 	@BeforeEach
 	void setUp() {
-		storage = new AliyunOssMemoryStorage(ossClient, bucketName, prefix);
+		storage = new AliyunOssStorage(ossClient, bucketName, prefix);
 	}
 
 	@Test
@@ -84,7 +85,7 @@ class AliyunOssMemoryStorageTest {
 	@DisplayName("writeString() puts object")
 	void writeString() throws IOException {
 		storage.writeString("new.md", "content");
-		verify(ossClient).putObject(eq(bucketName), eq(prefix + "new.md"), any(ByteArrayInputStream.class));
+		verify(ossClient).putObject(eq(bucketName), eq(prefix + "new.md"), any(InputStream.class));
 	}
 
 	@Test
@@ -94,8 +95,8 @@ class AliyunOssMemoryStorageTest {
 		OSSObjectSummary summary = new OSSObjectSummary();
 		summary.setKey(prefix + "file.md");
 		summary.setSize(100L);
-		listing.setObjectSummaries(Collections.singletonList(summary));
-		listing.setCommonPrefixes(Collections.singletonList(prefix + "subdir/"));
+		listing.getObjectSummaries().add(summary);
+		listing.getCommonPrefixes().add(prefix + "subdir/");
 
 		when(ossClient.listObjects(any(com.aliyun.oss.model.ListObjectsRequest.class))).thenReturn(listing);
 
@@ -117,11 +118,11 @@ class AliyunOssMemoryStorageTest {
 	@Test
 	@DisplayName("prefix variants in constructor")
 	void constructorPrefix() {
-		var s1 = new AliyunOssMemoryStorage(ossClient, bucketName, null);
+		var s1 = new AliyunOssStorage(ossClient, bucketName, null);
 		assertThat(s1.exists("f")).isFalse();
 		verify(ossClient).doesObjectExist(bucketName, "f");
 
-		var s2 = new AliyunOssMemoryStorage(ossClient, bucketName, "root");
+		var s2 = new AliyunOssStorage(ossClient, bucketName, "root");
 		s2.exists("f");
 		verify(ossClient).doesObjectExist(bucketName, "root/f");
 	}
