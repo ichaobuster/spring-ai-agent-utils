@@ -276,9 +276,13 @@ public class Skills {
 	private static Skill parseSkill(InputStream is, String entryPath) throws IOException {
 		String markdown = new String(is.readAllBytes(), StandardCharsets.UTF_8);
 		MarkdownParser parser = new MarkdownParser(markdown);
-		String basePath = entryPath.endsWith("/SKILL.md")
-				? entryPath.substring(0, entryPath.lastIndexOf('/'))
+		String basePath = entryPath.endsWith("/SKILL.md") ? entryPath.substring(0, entryPath.lastIndexOf('/'))
 				: entryPath;
+
+		if (!basePath.startsWith("/") && !basePath.contains(":")) {
+			basePath = "classpath:" + (basePath.startsWith("/") ? "" : "/") + basePath;
+		}
+
 		return new Skill(basePath, parser.getFrontMatter(), parser.getContent());
 	}
 
@@ -292,6 +296,11 @@ public class Skills {
 		if (basePath.contains("!/")) {
 			basePath = basePath.substring(basePath.indexOf("!/") + 2);
 		}
+
+		if (!basePath.startsWith("/") && !basePath.contains(":")) {
+			basePath = "classpath:" + (basePath.startsWith("/") ? "" : "/") + basePath;
+		}
+
 		return basePath;
 	}
 

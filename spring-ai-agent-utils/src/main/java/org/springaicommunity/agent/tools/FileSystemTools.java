@@ -20,6 +20,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.InputStreamReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -30,19 +31,32 @@ import java.util.List;
 
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.core.io.DefaultResourceLoader;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
 
 /**
  * @author Christian Tzolov
  */
 public class FileSystemTools {
 
+	private final ResourceLoader resourceLoader;
+
+	public FileSystemTools() {
+		this(new DefaultResourceLoader());
+	}
+
+	public FileSystemTools(ResourceLoader resourceLoader) {
+		this.resourceLoader = resourceLoader;
+	}
+
 	// @formatter:off
 	@Tool(name = "Read", description = """
-		Reads a file from the local filesystem. You can access any file directly by using this tool.
+		Reads a file from the local filesystem or a Spring Resource location. You can access any file or classpath resource directly by using this tool.
 		Assume this tool is able to read all files on the machine. If the User provides a path to a file assume that path is valid. It is okay to read a file that does not exist; an error will be returned.
 
 		Usage:
-		- The file_path parameter must be an absolute path, not a relative path
+		- The file_path parameter must be an absolute path or a valid Spring Resource location (e.g., "classpath:/path/to/resource")
 		- By default, it reads up to 2000 lines starting from the beginning of the file
 		- You can optionally specify a line offset and limit (especially handy for long files), but it's recommended to read the whole file by not providing these parameters
 		- Any lines longer than 2000 characters will be truncated
@@ -61,14 +75,27 @@ public class FileSystemTools {
 		@ToolParam(description = "The number of lines to read. Only provide if the file is too large to read at once.", required = false) Integer limit) { // @formatter:on
 
 		try {
-			File file = new File(filePath);
+			Resource resource = this.resourceLoader.getResource(filePath);
 
-			if (!file.exists()) {
-				return "Error: File does not exist: " + filePath;
+			if (!resource.exists()) {
+				// Fallback to absolute file path if ResourceLoader fails
+				File file = new File(filePath);
+				if (file.isAbsolute() && file.exists()) {
+					resource = this.resourceLoader.getResource("file:" + filePath);
+				}
+				else {
+					return "Error: File does not exist: " + filePath;
+				}
 			}
 
-			if (file.isDirectory()) {
-				return "Error: Path is a directory, not a file: " + filePath;
+			// If it's a file, we can check if it's a directory
+			try {
+				if (resource.getFile().isDirectory()) {
+					return "Error: Path is a directory, not a file: " + filePath;
+				}
+			}
+			catch (IOException e) {
+				// Not a file, proceed to read as stream
 			}
 
 			// Default values
@@ -83,7 +110,8 @@ public class FileSystemTools {
 			int currentLine = 0;
 			int linesRead = 0;
 
-			try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+			try (BufferedReader reader = new BufferedReader(
+					new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8))) {
 				String line;
 				while ((line = reader.readLine()) != null) {
 					currentLine++;

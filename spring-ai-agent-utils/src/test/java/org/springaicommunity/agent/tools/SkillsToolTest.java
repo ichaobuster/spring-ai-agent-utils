@@ -299,7 +299,7 @@ class SkillsToolTest {
 
 			String result = callback.call("{\"command\":\"jar-skill\"}");
 
-			assertThat(result).contains("Base directory for this skill: skills/jar-skill");
+			assertThat(result).contains("Base directory for this skill: classpath:/skills/jar-skill");
 			assertThat(result).contains("JAR skill content.");
 		}
 
