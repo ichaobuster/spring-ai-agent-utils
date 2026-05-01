@@ -21,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.core.io.ClassPathResource;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -152,6 +153,29 @@ class FileSystemToolsTest {
 			// Then
 			assertThat(result).contains("     1\tLine 1");
 			assertThat(result).contains("     2\tLine 2");
+		}
+
+		@Test
+		@DisplayName("Should read from classpath resource")
+		void shouldReadFromClasspathResource() {
+			// When - read a known resource on the classpath (assuming there's one)
+			// Using the SKILL.md from pdf skill which we know exists in src/main/resources
+			String classpath = "classpath:/META-INF/resources/skills/anthropics/skills/pdf/SKILL.md";
+			String result = tools.read(classpath, null, null);
+
+			// Then
+			assertThat(result).contains("name: pdf");
+		}
+
+		@Test
+		@DisplayName("Should read from classpath resource without prefix if not an absolute path")
+		void shouldReadFromClasspathResourceWithoutPrefix() {
+			// When
+			String path = "META-INF/resources/skills/anthropics/skills/pdf/SKILL.md";
+			String result = tools.read(path, null, null);
+
+			// Then
+			assertThat(result).contains("name: pdf");
 		}
 
 	}
